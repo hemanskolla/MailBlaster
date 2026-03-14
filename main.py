@@ -37,6 +37,13 @@ def main():
         default=None,
         help="Pre-fill the email subject (you will still be prompted if omitted).",
     )
+    parser.add_argument(
+        "--attachments",
+        metavar="FILE",
+        nargs="+",
+        default=[],
+        help="One or more file paths to attach to every email in the blast.",
+    )
     args = parser.parse_args()
 
     # 1. Load recipients from CSV
@@ -53,7 +60,7 @@ def main():
         print("(Dry run: skipping authentication)\n")
 
     # 3. Compose the email
-    email = compose()
+    email = compose(attachments=args.attachments)
 
     # If --subject was passed, override the interactively entered subject
     if args.subject:
@@ -67,6 +74,7 @@ def main():
             subject=email["subject"],
             body_html=email["body_html"],
             body_text=email["body_text"],
+            attachments=args.attachments,
             dry_run=args.dry_run,
             personalize_fn=personalize,
         )

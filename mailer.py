@@ -6,6 +6,9 @@ Each recipient gets their own separate message — no one can see others' addres
 import os
 import time
 import smtplib
+import mimetypes
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
@@ -22,6 +25,7 @@ def send_all(
     subject: str,
     body_html: str,
     body_text: str,
+    attachments: list[str] | None = None,
     dry_run: bool = False,
     personalize_fn=None,
 ) -> None:
@@ -31,6 +35,7 @@ def send_all(
     """
     sender = os.getenv("GMAIL_ADDRESS", "")
     total = len(recipients)
+    attachments = attachments or []
 
     print(f"\n{'[DRY RUN] ' if dry_run else ''}Sending to {total} recipient(s)...\n")
 
@@ -50,7 +55,7 @@ def send_all(
             continue
 
         try:
-            msg = _build_message(sender, recipient, subject, html, text)
+            msg = _build_message(sender, recipient, subject, html, text, attachments)
             smtp.sendmail(sender, recipient.email, msg.as_string())
             print(f"  [{i}/{total}] Sent to: {recipient.display()}")
             success_count += 1
@@ -65,15 +70,44 @@ def send_all(
 
 
 def _build_message(
-    sender: str, recipient: Recipient, subject: str, body_html: str, body_text: str
+    sender: str,
+    recipient: Recipient,
+    subject: str,
+    body_html: str,
+    body_text: str,
+    attachments: list[str] | None = None,
 ) -> MIMEMultipart:
-    msg = MIMEMultipart("alternative")
+    attachments = attachments or []
+
+    if attachments:
+        # mixed outer → alternative inner (text+html) + file parts
+        msg = MIMEMultipart("mixed")
+        body_part = MIMEMultipart("alternative")
+        body_part.attach(MIMEText(body_text, "plain"))
+        body_part.attach(MIMEText(body_html, "html"))
+        msg.attach(body_part)
+
+        for path in attachments:
+            mime_type, _ = mimetypes.guess_type(path)
+            main_type, sub_type = (mime_type or "application/octet-stream").split("/", 1)
+            with open(path, "rb") as f:
+                part = MIMEBase(main_type, sub_type)
+                part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                "attachment",
+                filename=os.path.basename(path),
+            )
+            msg.attach(part)
+    else:
+        msg = MIMEMultipart("alternative")
+        # Attach plain text first, HTML second (email clients prefer the last part)
+        msg.attach(MIMEText(body_text, "plain"))
+        msg.attach(MIMEText(body_html, "html"))
+
     msg["Subject"] = subject
     msg["From"] = sender
     msg["To"] = recipient.display()
-
-    # Attach plain text first, HTML second (email clients prefer the last part)
-    msg.attach(MIMEText(body_text, "plain"))
-    msg.attach(MIMEText(body_html, "html"))
 
     return msg
