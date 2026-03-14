@@ -1,22 +1,23 @@
 """
-Sends emails individually via the Microsoft Graph API.
+Sends emails individually via Gmail SMTP.
 Each recipient gets their own separate message — no one can see others' addresses.
 """
 
 import os
 import time
-import requests
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from dotenv import load_dotenv
 from recipients import Recipient
 
 load_dotenv()
 
-GRAPH_SEND_URL = "https://graph.microsoft.com/v1.0/me/sendMail"
 SEND_DELAY_SECONDS = 1.0  # Pause between sends to avoid rate limiting
 
 
 def send_all(
-    token: str,
+    smtp: smtplib.SMTP,
     recipients: list[Recipient],
     subject: str,
     body_html: str,
@@ -25,19 +26,10 @@ def send_all(
     personalize_fn=None,
 ) -> None:
     """
-    Sends one email per recipient. Each email is addressed only to that single
-    recipient — no CC/BCC of other addresses.
-
-    Args:
-        token:          OAuth2 access token.
-        recipients:     List of Recipient objects from recipients.py.
-        subject:        Email subject line.
-        body_html:      HTML version of the email body.
-        body_text:      Plain-text version (used as fallback reference).
-        dry_run:        If True, prints what would be sent without actually sending.
-        personalize_fn: Optional callable(body_html, body_text, name, email) -> (html, text).
+    Sends one email per recipient via Gmail SMTP. Each email is addressed only
+    to that single recipient — no one can see others' addresses.
     """
-    sender_email = os.getenv("SENDER_EMAIL", "")
+    sender = os.getenv("GMAIL_ADDRESS", "")
     total = len(recipients)
 
     print(f"\n{'[DRY RUN] ' if dry_run else ''}Sending to {total} recipient(s)...\n")
@@ -57,10 +49,9 @@ def send_all(
             success_count += 1
             continue
 
-        payload = _build_payload(sender_email, recipient, subject, html)
-
         try:
-            _send_one(token, payload)
+            msg = _build_message(sender, recipient, subject, html, text)
+            smtp.sendmail(sender, recipient.email, msg.as_string())
             print(f"  [{i}/{total}] Sent to: {recipient.display()}")
             success_count += 1
         except Exception as e:
@@ -73,38 +64,16 @@ def send_all(
     print(f"\nDone. {success_count} sent, {fail_count} failed.")
 
 
-def _build_payload(sender_email: str, recipient: Recipient, subject: str, body_html: str) -> dict:
-    payload = {
-        "message": {
-            "subject": subject,
-            "body": {
-                "contentType": "HTML",
-                "content": body_html,
-            },
-            "toRecipients": [
-                {
-                    "emailAddress": {
-                        "address": recipient.email,
-                        "name": recipient.name,
-                    }
-                }
-            ],
-        },
-        "saveToSentItems": True,
-    }
-    if sender_email:
-        payload["message"]["from"] = {
-            "emailAddress": {"address": sender_email}
-        }
-    return payload
+def _build_message(
+    sender: str, recipient: Recipient, subject: str, body_html: str, body_text: str
+) -> MIMEMultipart:
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = recipient.display()
 
+    # Attach plain text first, HTML second (email clients prefer the last part)
+    msg.attach(MIMEText(body_text, "plain"))
+    msg.attach(MIMEText(body_html, "html"))
 
-def _send_one(token: str, payload: dict) -> None:
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
-    response = requests.post(GRAPH_SEND_URL, headers=headers, json=payload, timeout=30)
-    if response.status_code == 202:
-        return  # 202 Accepted is the success response for sendMail
-    raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
+    return msg

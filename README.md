@@ -1,10 +1,10 @@
 # MailBlaster
 
-Send personalized bulk emails from your Outlook/RPI email account without revealing recipients to each other. Each person gets their own individual email.
+Send personalized bulk emails from your Gmail account without revealing recipients to each other. Each person gets their own individual email.
 
 ## Features
 
-- Authenticate once via browser — token is cached for future runs
+- Sends from your Gmail via SMTP — no Azure setup required
 - Write your email in **Markdown** — bold, italic, links, lists all work
 - Use `{name}` in your body to personalize each email with the recipient's name
 - Load recipients from a CSV file
@@ -19,14 +19,15 @@ Send personalized bulk emails from your Outlook/RPI email account without reveal
 pip install -r requirements.txt
 ```
 
-### 2. Register an Azure app (one-time setup)
+### 2. Generate a Gmail App Password (one-time setup)
 
-1. Go to [portal.azure.com](https://portal.azure.com) and sign in with your RPI account
-2. Navigate to **Azure Active Directory → App registrations → New registration**
-3. Name it anything (e.g. "MailBlaster"), select **"Accounts in this organizational directory only"**
-4. Under **Authentication**, add a platform: choose **"Mobile and desktop applications"** and enable `https://login.microsoftonline.com/common/oauth2/nativeclient`
-5. Under **API permissions**, add `Microsoft Graph → Delegated → Mail.Send`
-6. Copy the **Application (client) ID** and **Directory (tenant) ID**
+Regular Gmail passwords won't work — Google requires an **App Password** for SMTP access.
+
+1. Go to your Google Account → **Security**
+2. Enable **2-Step Verification** if not already on
+3. Go to **Security → App Passwords** (search "App Passwords" in the search bar)
+4. Select app: **Mail**, Select device: **Other** → type "MailBlaster" → click **Generate**
+5. Copy the 16-character password shown
 
 ### 3. Configure your `.env`
 
@@ -34,7 +35,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your `CLIENT_ID`, `TENANT_ID`, and `SENDER_EMAIL`.
+Edit `.env` and fill in your Gmail address and the App Password from step 2.
 
 ## CSV Format
 
@@ -84,16 +85,3 @@ In the email body, use standard Markdown:
 
 Dear {name}, ...   ← replaced with each recipient's name
 ```
-
-## First Run
-
-On your first run, you'll see a message like:
-
-```
---- Authentication Required ---
-To sign in, use a web browser to open https://microsoft.com/devicelogin
-and enter the code XXXXXXXX to authenticate.
--------------------------------
-```
-
-Open the URL, enter the code, and sign in with your RPI account. The token is cached in `token_cache.json` (git-ignored) so you won't need to do this again until it expires.
