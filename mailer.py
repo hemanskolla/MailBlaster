@@ -8,6 +8,7 @@ import time
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from dotenv import load_dotenv
 from recipients import Recipient
 
@@ -30,6 +31,7 @@ def send_all(
     to that single recipient — no one can see others' addresses.
     """
     sender = os.getenv("GMAIL_ADDRESS", "")
+    sender_name = os.getenv("SENDER_NAME", "")
     total = len(recipients)
 
     print(f"\n{'[DRY RUN] ' if dry_run else ''}Sending to {total} recipient(s)...\n")
@@ -50,7 +52,7 @@ def send_all(
             continue
 
         try:
-            msg = _build_message(sender, recipient, subject, html, text)
+            msg = _build_message(sender, sender_name, recipient, subject, html, text)
             smtp.sendmail(sender, recipient.email, msg.as_string())
             print(f"  [{i}/{total}] Sent to: {recipient.display()}")
             success_count += 1
@@ -65,11 +67,11 @@ def send_all(
 
 
 def _build_message(
-    sender: str, recipient: Recipient, subject: str, body_html: str, body_text: str
+    sender: str, sender_name: str, recipient: Recipient, subject: str, body_html: str, body_text: str
 ) -> MIMEMultipart:
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = sender
+    msg["From"] = formataddr((sender_name, sender)) if sender_name else sender
     msg["To"] = recipient.display()
 
     # Attach plain text first, HTML second (email clients prefer the last part)
