@@ -41,7 +41,7 @@ def _prompt_multiline(prompt: str) -> str:
     return "\n".join(lines)
 
 
-def compose() -> dict:
+def compose(attachments: list[str] | None = None) -> dict:
     """
     Interactively prompts the user for subject and body, then returns a dict:
       {
@@ -50,10 +50,25 @@ def compose() -> dict:
         "body_html": str,   # converted HTML
       }
     """
+    import os
+
+    attachments = attachments or []
+
     print("=" * 60)
     print("  MailBlaster — Email Composer")
     print("=" * 60)
     print(HELP_TEXT)
+
+    # Validate attachments early so the user knows before composing
+    if attachments:
+        print("Attachments:")
+        for path in attachments:
+            if not os.path.isfile(path):
+                print(f"  ERROR: attachment not found: {path}")
+                sys.exit(1)
+            size_kb = os.path.getsize(path) / 1024
+            print(f"  - {path} ({size_kb:.1f} KB)")
+        print()
 
     # Subject
     subject = ""
@@ -76,6 +91,8 @@ def compose() -> dict:
     print("PREVIEW")
     print("=" * 60)
     print(f"Subject : {subject}")
+    if attachments:
+        print(f"Attachments: {', '.join(os.path.basename(p) for p in attachments)}")
     print(f"\nBody (plain):\n{body_text}\n")
     print(f"Body (HTML rendered):\n{body_html}")
     print("=" * 60)
