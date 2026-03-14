@@ -11,6 +11,7 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from dotenv import load_dotenv
 from recipients import Recipient
 
@@ -34,6 +35,7 @@ def send_all(
     to that single recipient — no one can see others' addresses.
     """
     sender = os.getenv("GMAIL_ADDRESS", "")
+    sender_name = os.getenv("SENDER_NAME", "")
     total = len(recipients)
     attachments = attachments or []
 
@@ -55,7 +57,7 @@ def send_all(
             continue
 
         try:
-            msg = _build_message(sender, recipient, subject, html, text, attachments)
+            msg = _build_message(sender, sender_name, recipient, subject, html, text, attachments)
             smtp.sendmail(sender, recipient.email, msg.as_string())
             print(f"  [{i}/{total}] Sent to: {recipient.display()}")
             success_count += 1
@@ -71,6 +73,7 @@ def send_all(
 
 def _build_message(
     sender: str,
+    sender_name: str,
     recipient: Recipient,
     subject: str,
     body_html: str,
@@ -107,7 +110,7 @@ def _build_message(
         msg.attach(MIMEText(body_html, "html"))
 
     msg["Subject"] = subject
-    msg["From"] = sender
+    msg["From"] = formataddr((sender_name, sender)) if sender_name else sender
     msg["To"] = recipient.display()
 
     return msg
