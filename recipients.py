@@ -38,7 +38,7 @@ def load_recipients(csv_path: str) -> List[Recipient]:
 
             # Normalize fieldnames to lowercase for flexible column naming
             normalized_rows = [
-                {k.strip().lower(): v.strip() for k, v in row.items()}
+                {k.strip().lower(): (v or "").strip() for k, v in row.items() if k is not None}
                 for row in reader
             ]
 
