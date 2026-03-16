@@ -9,6 +9,8 @@ Send personalized bulk emails from your Gmail account without revealing recipien
 - Use `{name}` in your body to personalize each email with the recipient's name
 - Load recipients from a CSV file
 - Each recipient gets a separate email — no one can see others' addresses
+- Attach one or more files to every email with `--attachments`
+- Set a friendly sender display name via `SENDER_NAME` in your `.env`
 - `--dry-run` mode to preview everything before sending
 
 ## Setup
@@ -35,7 +37,15 @@ Regular Gmail passwords won't work — Google requires an **App Password** for S
 cp .env.example .env
 ```
 
-Edit `.env` and fill in your Gmail address and the App Password from step 2.
+Edit `.env` and fill in your credentials:
+
+```env
+GMAIL_ADDRESS=you@gmail.com
+GMAIL_APP_PASSWORD=your-16-char-app-password
+SENDER_NAME=Your Name or Team Name   # optional — shown as the "From" display name
+```
+
+If `SENDER_NAME` is set, recipients will see something like **"Innovation Weekend Message \<you@gmail.com\>"** instead of the raw address.
 
 ## CSV Format
 
@@ -61,6 +71,7 @@ python main.py --csv recipients.csv
 | `--csv FILE` | **(Required)** Path to your recipients CSV |
 | `--dry-run` | Preview sends without actually sending |
 | `--subject "..."` | Pre-fill subject from the command line |
+| `--attachments FILE [FILE ...]` | One or more files to attach to every email |
 
 ### Example
 
@@ -70,6 +81,12 @@ python main.py --csv my_list.csv --dry-run
 
 # Real send
 python main.py --csv my_list.csv
+
+# Send with attachments
+python main.py --csv my_list.csv --attachments report.pdf image.png
+
+# Pre-fill the subject
+python main.py --csv my_list.csv --subject "Hello everyone"
 ```
 
 ## Formatting Reference
